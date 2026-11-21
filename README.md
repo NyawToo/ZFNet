@@ -219,6 +219,22 @@ cd backend
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
+## Verificaciones de calidad
+
+El proyecto ejecuta estas comprobaciones localmente y en GitHub Actions:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m compileall -q backend scripts tests
+cd frontend
+npm ci
+npm run build
+```
+
+Las pruebas no descargan el dataset ni los checkpoints grandes: cubren el
+contrato crítico de etiquetas, la validación de checkpoints, el conteo de
+clases y la serialización segura de los jobs de entrenamiento.
+
 ## Prueba manual recomendada
 
 1. Abre `/predict`.
