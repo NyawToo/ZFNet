@@ -1,7 +1,11 @@
 # ZFNet Agro
 
 Aplicación de clasificación para identificar cinco frutas en estado bueno o dañada mediante ZFNet fine-tuneado. El proyecto incluye una API FastAPI, un frontend Next.js y visualización DeconvNet de las convoluciones.
+##Dataset
+Este se encuentra accediendo al enlace:
+https://storage.googleapis.com/kaggle-data-sets/13536696/22537983/bundle/archive.zip?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=gcp-kaggle-com%40kaggle-161607.iam.gserviceaccount.com%2F20261121%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20261121T054942Z&X-Goog-Expires=259200&X-Goog-SignedHeaders=host&X-Goog-Signature=a12ec70a8e713e50d51490a8a1d71271cc904078b69b79dd77db3e6d2d5dbb67c1fcef34260ba33b5e55fa37403e6890a91e7ad2320e78f0b8aae7f93df0cacd03c2ce17900e39b5b5f74b30c613353e3ff3df7b306e89f4efc6a6d33fc2a18f19e85fa10dbb8523af8e4e91554a7ba2ffa77954c6a14839511bd71607cfbf3e22f5ae6a41ea56aba5299124d5b895e651c992b1844dc367ef67e30a2224d83c18858abba7ae61c00765ae08b3e42d524b280fc485252ad468bbab29eac6daf7a8b4cfd1a0bffa9ae4168b4623c46787572a6224136850354e5bd1bcde39769933ca4790e2b05e9ec0085e0559a4cbf3ebe0f5088bbc90e0c18399041f26fda4
 
+Tambien puede ser usado su origen raiz: https://www.kaggle.com/datasets/nyawtoo/fruits-dataset-synthetic-p-m-n-b-m/data
 ## Tecnologías
 
 - ZFNet y PyTorch
