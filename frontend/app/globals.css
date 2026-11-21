@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Inter", "Segoe UI", system-ui;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+}
+
+html,
+body {
+  @apply bg-[#f6f7f5] text-ink antialiased;
+}
+
+::selection {
+  @apply bg-leaf-200 text-leaf-900;
+}
+
+.card {
+  @apply rounded-lg border border-black/5 bg-white shadow-[0_1px_2px_rgba(16,24,20,0.04),0_12px_32px_-24px_rgba(16,24,20,0.35)];
+}
+
+@media (max-width: 640px) {
+  main {
+    @apply px-3;
+  }
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition
+    disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.btn-primary {
+  @apply btn bg-leaf-700 text-white hover:bg-leaf-800 active:bg-leaf-900;
+}
+
+.btn-ghost {
+  @apply btn border border-black/10 bg-white text-ink hover:border-black/20 hover:bg-black/[0.02];
+}
+
+.chip {
+  @apply inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs font-medium text-ink/70;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-black/15;
+}

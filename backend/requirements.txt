@@ -1,0 +1,11 @@
+# Backend de inferencia — solo CPU, para correr en Hugging Face Spaces o local.
+# Instalar con:  pip install -r backend/requirements.txt
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+fastapi==0.165.0
+uvicorn[standard]==0.46.0
+pydantic==2.14.3
+python-multipart==0.0.20
+pillow==12.2.0
+numpy==2.4.4
+torch==2.15.0+cpu
