@@ -6,7 +6,7 @@ FastAPI), así el checkpoint de 350 MB se lee una sola vez.
 Resolución del checkpoint, en orden:
 
 1. `ZFNET_CUSTOM_CHECKPOINT`, si está definida.
-2. `models/weights/zfnet_frutos10_full.pt`, si existe.
+2. `models/weights/zfnet_frutos10_phase2.pt`, si existe.
 3. `models/weights/zfnet512_imagenet.pt` (sólo sirve para probar el port: sus
    etiquetas son de ImageNet, no de frutas, y se rechaza explícitamente).
 
@@ -39,7 +39,7 @@ from .zfnet import ZFNet, build_zfnet
 ROOT = Path(__file__).resolve().parents[3]
 
 DEFAULT_CHECKPOINT = ROOT / "models" / "weights" / "zfnet512_imagenet.pt"
-FRUIT_CHECKPOINT = ROOT / "models" / "weights" / "zfnet_frutos10_full.pt"
+FRUIT_CHECKPOINT = ROOT / "models" / "weights" / "zfnet_frutos10_phase2.pt"
 DEFAULT_DATASET = os.getenv("ZFNET_DATASET", "fruits_dataset_synthetic")
 
 
