@@ -1,35 +1,38 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# --- PYTHONPATH FIX: aseguramos que 'backend' sea importable esté donde estemos ---
-import sys as _sys
-_PROJECT = r"C:\Users\Nyaw\Downloads\Inteligencia Artificial"
-if _PROJECT not in _sys.path:
-    _sys.path.insert(0, _PROJECT)
+"""Fine-tuning de ZFNet para clasificación agronómica.
 
-print(f"[DEBUG] Proyecto: {_PROJECT}", flush=True)
+El script vive en `scripts/`, pero importa `backend.app.core.zfnet`. Por eso la
+raíz del proyecto se agrega a `sys.path` derivándola de la ubicación de este
+archivo: el repo funciona clonado en cualquier carpeta, sin rutas absolutas.
+"""
 
-# --- imports normales ---
+from __future__ import annotations
+
 import argparse
 import json
-import os
+import sys
 import time
 from pathlib import Path
 
-from backend.app.core.zfnet import ZFNet, build_zfnet
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from backend.app.core.zfnet import ZFNet, build_zfnet  # noqa: E402
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
-from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from PIL import Image
 
-# Rutas absolutas fijas
-_CKPT_DEFAULT = str(Path(_PROJECT) / "models" / "weights" / "zfnet512_imagenet.pt")
-_TRAIN_DIR_DEFAULT = None  # el usuario lo pasa por --data-dir
+# Checkpoint ImageNet que aporta el tronco pre-entrenado.
+_CKPT_DEFAULT = str(ROOT / "models" / "weights" / "zfnet512_imagenet.pt")
+_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
 
 # ------------------------------------------------------------------ #
@@ -41,7 +44,7 @@ class FruitStateDataset(torch.utils.data.Dataset):
         class_dirs = sorted(
             directory for directory in root_path.rglob("*")
             if directory.is_dir()
-            and any(file.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+            and any(file.suffix.lower() in _IMAGE_EXTENSIONS
                     for file in directory.iterdir() if file.is_file())
         )
         self.classes = [directory.name for directory in class_dirs]
@@ -51,7 +54,7 @@ class FruitStateDataset(torch.utils.data.Dataset):
         for directory in class_dirs:
             class_index = class_to_index[directory.name]
             for image_path in sorted(directory.iterdir(), key=lambda path: path.name):
-                if image_path.is_file() and image_path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".bmp"}:
+                if image_path.is_file() and image_path.suffix.lower() in _IMAGE_EXTENSIONS:
                     self.samples.append((str(image_path), class_index))
                     self.targets.append(class_index)
         self.transform = transform
@@ -113,6 +116,30 @@ def get_transforms(input_size: int = 224, is_training: bool = True):
 # ------------------------------------------------------------------ #
 # Helper: crear DataLoaders
 # ------------------------------------------------------------------ #
+class TransformSubset(torch.utils.data.Dataset):
+    """Vista de `dataset` con su propio `transform`.
+
+    `torch.utils.data.Subset` comparte el dataset subyacente, así que hacer
+    `subset.dataset.transform = ...` cambia el transform de *todas* las
+    particiones. Esa mutación hacía que el entrenamiento usara el transform de
+    validación (sin random crop ni flip). Esta clase aísla cada partición.
+    """
+
+    def __init__(self, dataset: FruitStateDataset, indices, transform):
+        self.samples = [dataset.samples[index] for index in indices]
+        self.transform = transform
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        path, target = self.samples[index]
+        image = Image.open(path).convert("RGB")
+        if self.transform:
+            image = self.transform(image)
+        return image, target
+
+
 def make_dataloaders(
     data_dir: str,
     batch_size: int = 32,
@@ -135,6 +162,7 @@ def make_dataloaders(
 
     manifest_path = Path(data_dir) / "dataset_manifest.json"
     train_indices, valid_indices, test_indices = [], [], []
+    split_source = "aleatoria"
 
     if manifest_path.is_file():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -146,9 +174,8 @@ def make_dataloaders(
             "test": float(test_percent),
         }
         if manifest_seed == seed and all(abs(float(manifest_split.get(key, -1)) - value) <= 0.01 for key, value in expected_split.items()):
-            project_root = Path(_PROJECT)
             split_by_path = {
-                (project_root / record["relative_path"]).resolve(): record["split"]
+                (ROOT / record["relative_path"]).resolve(): record["split"]
                 for record in manifest.get("images", [])
             }
             for index, (image_path, _target) in enumerate(full_dataset.samples):
@@ -160,6 +187,8 @@ def make_dataloaders(
                     valid_indices.append(index)
                 elif split == "test":
                     test_indices.append(index)
+            if train_indices:
+                split_source = "manifiesto"
 
     if not train_indices:
         rng = np.random.default_rng(seed)
@@ -179,10 +208,8 @@ def make_dataloaders(
     if not train_indices:
         raise ValueError("El porcentaje de entrenamiento produjo una partición vacía")
 
-    train_subset = torch.utils.data.Subset(full_dataset, train_indices)
-    train_subset.dataset.transform = get_transforms(is_training=True)
-    valid_subset = torch.utils.data.Subset(full_dataset, valid_indices)
-    valid_subset.dataset.transform = get_transforms(is_training=False)
+    train_subset = TransformSubset(full_dataset, train_indices, get_transforms(is_training=True))
+    valid_subset = TransformSubset(full_dataset, valid_indices, get_transforms(is_training=False))
 
     class_counts = np.bincount([full_dataset.targets[index] for index in train_indices], minlength=len(full_dataset.classes))
     class_weights = np.where(class_counts > 0, 1.0 / class_counts, 0.0)
@@ -190,16 +217,15 @@ def make_dataloaders(
     sampler = torch.utils.data.WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
 
     train_loader = DataLoader(train_subset, batch_size=batch_size, sampler=sampler, num_workers=0, pin_memory=torch.cuda.is_available())
-    valid_loader = DataLoader(valid_subset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=True)
+    valid_loader = DataLoader(valid_subset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=torch.cuda.is_available())
 
     test_loader = None
     if test_indices:
-        test_subset = torch.utils.data.Subset(full_dataset, test_indices)
-        test_subset.dataset.transform = get_transforms(is_training=False)
-        test_loader = DataLoader(test_subset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=True)
+        test_subset = TransformSubset(full_dataset, test_indices, get_transforms(is_training=False))
+        test_loader = DataLoader(test_subset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=torch.cuda.is_available())
 
     print(
-        f"Particiones aleatorias: train={len(train_indices)}, validación={len(valid_indices)}, "
+        f"Particiones ({split_source}): train={len(train_indices)}, validación={len(valid_indices)}, "
         f"prueba={len(test_indices)} | semilla={seed}",
         flush=True,
     )
@@ -324,7 +350,10 @@ def main(args):
     else:
         optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
 
-    exp_lr_scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=max(args.lr * 0.01, 1e-6))
+    # El README y la UI de /train exponen `--step-size` y `--gamma`, así que el
+    # scheduler es StepLR: baja el LR cada `step_size` épocas por un factor
+    # `gamma`. Antes se aceptaban ambos flags y se ignoraban (CosineAnnealing).
+    lr_scheduler_step = lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
     # 7) Loop
     best_acc = 0.0
@@ -355,6 +384,10 @@ def main(args):
                         "epoch": epoch,
                         "train_acc": train_acc,
                         "valid_acc": valid_acc,
+                        # Las etiquetas viajan con el checkpoint: quien infiere no
+                        # puede inventar ni reordenar el mapeo índice -> clase.
+                        "labels": list(valid_classes),
+                        "label_to_index": {name: index for index, name in enumerate(valid_classes)},
                     },
                 },
                 str(out_path),
@@ -363,24 +396,30 @@ def main(args):
         else:
             stale_epochs += 1
 
-        exp_lr_scheduler.step()
+        lr_scheduler_step.step()
         if stale_epochs >= args.patience:
             print(f"Early stopping: sin mejorar {args.patience} épocas", flush=True)
             break
 
-    if test_loader is not None:
+    # La partición de prueba se evalúa con el MEJOR checkpoint, no con los pesos
+    # de la última época (que pueden estar peores por sobreajuste).
+    best_path = Path(args.output)
+    if test_loader is not None and best_path.is_file():
+        best_payload = torch.load(best_path, map_location=device, weights_only=False)
+        model.load_state_dict(best_payload["state_dict"])
+        model = model.to(device)
         test_loss, test_acc = validate_epoch(model, test_loader, device, criterion)
         print(f"Prueba final: loss={test_loss:.4f} acc={test_acc:.4f}", flush=True)
 
     time_elapsed = time.time() - since
     print(f"\nEntrenamiento completado en {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s", flush=True)
-    print(f"Mejor precisión validación: {best_acc:4.2f}%", flush=True)
+    print(f"Mejor precisión validación: {best_acc:.2%}", flush=True)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fine-tuning ZFNet para clasificación agronómica")
     parser.add_argument("--data-dir", type=str, required=True,
-                        help="Ruta al directorio que contenga train/ y valid/ (ImageFolder)")
+                        help="Directorio del dataset con estructura fruta/estado (por ejemplo fruits_dataset_synthetic)")
     parser.add_argument("--classes", type=int, required=True,
                         help="Número de clases del dataset agronómico")
     parser.add_argument("--mode", type=str, required=True, choices=["head-only", "full"],

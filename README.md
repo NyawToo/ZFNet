@@ -156,6 +156,13 @@ API activa:
 - Manifiesto: http://127.0.0.1:8000/api/dataset-manifest/fruits_dataset_synthetic
 
 La variable `ZFNET_CUSTOM_CHECKPOINT` debe apuntar a un `.pt` generado por el script de fine-tuning.
+Los checkpoints generados por el script guardan también `labels` y `label_to_index`
+en `meta`; la API usa ese mapeo para evitar que el orden de clases del modelo y
+el de inferencia se desalineen. Un checkpoint antiguo sin ese metadata usa, como
+compatibilidad temporal, las etiquetas de `dataset_manifest.json` y emite una
+advertencia al arrancar. Un checkpoint de ImageNet no puede usarse como modelo
+de frutas: debe configurarse un checkpoint de fine-tuning mediante
+`ZFNET_CUSTOM_CHECKPOINT`.
 
 ## Frontend
 
