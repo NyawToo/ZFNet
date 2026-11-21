@@ -384,6 +384,10 @@ def main(args):
                         "epoch": epoch,
                         "train_acc": train_acc,
                         "valid_acc": valid_acc,
+                        # Las etiquetas viajan con el checkpoint: quien infiere no
+                        # puede inventar ni reordenar el mapeo índice -> clase.
+                        "labels": list(valid_classes),
+                        "label_to_index": {name: index for index, name in enumerate(valid_classes)},
                     },
                 },
                 str(out_path),

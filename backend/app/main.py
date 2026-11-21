@@ -47,6 +47,27 @@ ROOT = Path(__file__).resolve().parents[2]
 TRAINING_JOBS: dict[str, dict] = {}
 
 
+def _dataset_class_count(dataset_dir: Path) -> int:
+    """Clases del dataset: las del manifiesto si existe, si no las carpetas fruta/estado.
+
+    El entrenamiento antes recibía `--classes 10` fijo, así que cualquier dataset
+    con otro número de clases fallaba con "se esperaban 10 clases".
+    """
+    manifest_path = dataset_dir / "dataset_manifest.json"
+    if manifest_path.is_file():
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        labels = data.get("labels")
+        if isinstance(labels, list) and labels:
+            return len(labels)
+    return sum(
+        1
+        for fruit_dir in dataset_dir.iterdir()
+        if fruit_dir.is_dir()
+        for class_dir in fruit_dir.iterdir()
+        if class_dir.is_dir()
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     get_service()  # carga el modelo al arrancar, no en la primera request
@@ -276,9 +297,12 @@ def start_training(
     job_id = f"job-{int(time.time()*1000)}"
     output = ROOT / "models" / "weights" / f"zfnet_{dataset}_{job_id}.pt"
     log_path = ROOT / "models" / "weights" / f"{job_id}.log"
+    num_classes = _dataset_class_count(dataset_dir)
+    if num_classes < 2:
+        raise HTTPException(422, f"el dataset {dataset} no tiene clases suficientes")
     command = [
         sys.executable, str(ROOT / "scripts" / "fine_tune_agro.py"),
-        "--data-dir", str(dataset_dir), "--classes", "10",
+        "--data-dir", str(dataset_dir), "--classes", str(num_classes),
         "--mode", mode, "--epochs", str(epochs), "--batch-size", str(batch_size),
         "--lr", str(learning_rate), "--step-size", str(step_size), "--gamma", str(gamma), "--patience", str(patience),
         "--output", str(output),
@@ -334,7 +358,10 @@ def training_status(job_id: str):
     job = TRAINING_JOBS.get(job_id)
     if not job:
         raise HTTPException(404, "job no encontrado")
-    return {k: v for k, v in job.items() if k not in {"log", "output"}} | {
+    # `process` es un objeto Popen y no forma parte del contrato JSON. Mientras
+    # el entrenamiento corre, incluirlo provocaba HTTP 500 en cada polling del
+    # frontend (`Object of type Popen is not JSON serializable`).
+    return {k: v for k, v in job.items() if k not in {"log", "output", "process"}} | {
         "checkpoint": job["output"] if job["status"] == "completed" else None
     }
 
