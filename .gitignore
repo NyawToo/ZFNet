@@ -5,3 +5,4 @@ node_modules/
 .next/
 dist/
 fruits_dataset_synthetic
+fruits_dataset_synthetic/
