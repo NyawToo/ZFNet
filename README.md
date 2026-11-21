@@ -235,6 +235,21 @@ Las pruebas no descargan el dataset ni los checkpoints grandes: cubren el
 contrato crítico de etiquetas, la validación de checkpoints, el conteo de
 clases y la serialización segura de los jobs de entrenamiento.
 
+Para evaluar un checkpoint entrenado sobre el split de prueba y generar una
+matriz de confusión:
+
+```powershell
+python scripts\evaluate_agro.py `
+  --checkpoint D:\_zfnet-download\zfnet_frutos10_phase2.pt `
+  --data-dir fruits_dataset_synthetic `
+  --output-dir D:\_zfnet-download\phase2-report
+```
+
+La primera corrida completa produjo `2360/2363 = 99.87%` en test. Este
+resultado corresponde al dataset sintético y no garantiza el mismo rendimiento
+con fotografías reales; la matriz mostró únicamente tres errores, todos entre
+las clases de manzana buena/dañada.
+
 ## Prueba manual recomendada
 
 1. Abre `/predict`.
