@@ -97,8 +97,16 @@ class ModelService:
         if not 0 <= ch < int(stats["channels"]):
             raise ValueError(f"canal {ch} fuera de rango para {layer} (0..{stats['channels'] - 1})")
 
-        recs = self.explainer.reconstruct(x, layer, ch, top_k=top_k, trace=True)
-        heat = self.explainer.activation_heatmap(x, layer, ch)
+        recs = self.explainer.reconstruct(
+            x,
+            layer,
+            ch,
+            top_k=top_k,
+            trace=True,
+            activations=acts,
+            switches=switches,
+        )
+        heat = self.explainer.activation_heatmap(x, layer, ch, activations=acts)
         base = image_to_rgb01(img, 224)
 
         maps = [{"position": list(r.position), "activation": r.activation, "image": to_data_uri(r.image)} for r in recs]

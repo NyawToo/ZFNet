@@ -250,6 +250,10 @@ resultado corresponde al dataset sintético y no garantiza el mismo rendimiento
 con fotografías reales; la matriz mostró únicamente tres errores, todos entre
 las clases de manzana buena/dañada.
 
+La explicación visual reutiliza ahora las activaciones y switches del forward
+inicial. En una medición local sobre CPU, `/api/explain` pasó de unos 10.9 s a
+unos 8.9 s para `conv5` con nueve mapas, sin cambiar la forma de la respuesta.
+
 ## Prueba manual recomendada
 
 1. Abre `/predict`.

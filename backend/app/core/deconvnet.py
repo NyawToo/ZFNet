@@ -189,12 +189,21 @@ class DeconvExplainer:
         positions: Sequence[Tuple[int, int]] | None = None,
         top_k: int = 9,
         trace: bool = False,
+        activations: Dict[str, torch.Tensor] | None = None,
+        switches: Dict[str, torch.Tensor] | None = None,
     ) -> List[Reconstruction]:
-        """Reconstruye una activación por cada posición pedida (por defecto, el top-k)."""
+        """Reconstruye una activación por cada posición pedida (por defecto, el top-k).
+
+        `activations` y `switches` permiten reutilizar un forward ya calculado
+        por el endpoint de explicación. Se mantienen opcionales para conservar
+        el contrato de los callers existentes.
+        """
         if layer not in DECONV_CHAINS:
             raise ValueError(f"capa no soportada: {layer}. Opciones: {LAYERS}")
 
-        acts, switches = self._forward(x)
+        if activations is None or switches is None:
+            activations, switches = self._forward(x)
+        acts = activations
         amap = acts[layer]
         if not 0 <= channel < amap.shape[1]:
             raise ValueError(f"canal {channel} fuera de rango (0..{amap.shape[1] - 1}) para {layer}")
@@ -242,14 +251,18 @@ class DeconvExplainer:
 
     @torch.no_grad()
     def activation_heatmap(
-        self, x: torch.Tensor, layer: str = "conv5", channel: int | None = None
+        self,
+        x: torch.Tensor,
+        layer: str = "conv5",
+        channel: int | None = None,
+        activations: Dict[str, torch.Tensor] | None = None,
     ) -> np.ndarray:
         """Mapa 2D normalizado a [0,1]: la activación del canal pedido.
 
         Si `channel` es None, toma el máximo absoluto entre canales, que sirve
         como vista general de "dónde hay energía" en la capa.
         """
-        acts, _ = self._forward(x)
+        acts = activations if activations is not None else self._forward(x)[0]
         fmap = acts[layer][0]
         arr = fmap[channel].detach().cpu().numpy() if channel is not None else fmap.abs().max(dim=0).values.detach().cpu().numpy()
         lo, hi = float(arr.min()), float(arr.max())

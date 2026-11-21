@@ -7,7 +7,9 @@ from unittest.mock import patch
 import torch
 
 from backend.app import main
+from backend.app.core.deconvnet import DeconvExplainer
 from backend.app.core import registry
+from backend.app.core.zfnet import ZFNet
 
 
 class TrainingContractTests(unittest.TestCase):
@@ -70,6 +72,24 @@ class TrainingContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "tiene 1000 clases"):
                     registry.get_service()
                 registry.get_service.cache_clear()
+
+    def test_explainer_reuses_forward_cache(self):
+        explainer = DeconvExplainer(ZFNet(num_classes=2))
+        image = torch.randn(1, 3, 224, 224)
+
+        with patch.object(explainer, "_forward", wraps=explainer._forward) as forward:
+            activations, switches = explainer._forward(image)
+            explainer.reconstruct(
+                image,
+                "conv1",
+                int(activations["conv1"].shape[1] - 1),
+                top_k=1,
+                activations=activations,
+                switches=switches,
+            )
+            explainer.activation_heatmap(image, "conv1", 0, activations=activations)
+
+        self.assertEqual(forward.call_count, 1)
 
 
 if __name__ == "__main__":
