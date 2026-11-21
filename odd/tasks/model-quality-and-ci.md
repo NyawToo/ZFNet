@@ -27,10 +27,11 @@ Checks: validación local equivalente y build del frontend.
 ## Tasks
 
 - T1 · S1 · inline · pending · commit TBD — reentrenar y evaluar el checkpoint completo.
-- T2 · S2 · inline · pending · commit TBD — añadir pruebas automatizadas del backend y scripts.
-- T3 · S3 · inline · pending · commit TBD — añadir CI y actualizar documentación.
+- T2 · S2 · inline · complete · `1752e83` — añadir pruebas automatizadas del backend y scripts.
+- T3 · S3 · inline · complete · `7b11f38` — añadir CI y actualizar documentación.
 
 ## Log
 
 - L1: "fase 2+3 ahora"
 - L2: Diagnóstico previo: el checkpoint existente tiene train 17.5% y validación 40%; el dataset local está instalado con 15,692 imágenes, 10 clases y manifiesto 70/15/15 seed 42.
+- L3: T2 verificado con 4 pruebas `unittest` y `compileall`; T3 verificado con `npm run build`. El entrenamiento completo de T1 continúa en segundo plano fuera del repositorio.
