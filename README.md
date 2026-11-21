@@ -141,12 +141,16 @@ $env:ZFNET_DATASET="fruits_dataset_synthetic"
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Para usar el checkpoint actualmente disponible:
+Para usar el checkpoint entrenado publicado:
 
 ```powershell
-$env:ZFNET_CUSTOM_CHECKPOINT="C:\Users\Nyaw\Downloads\Inteligencia Artificial\models\weights\zfnet_frutos10_full.pt"
+$env:ZFNET_CUSTOM_CHECKPOINT="models\weights\zfnet_frutos10_phase2.pt"
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+El repositorio puede cargar este checkpoint automáticamente al arrancar. Las rutas
+relativas funcionan desde `backend/`; el modelo se busca primero en
+`ZFNET_CUSTOM_CHECKPOINT` y después en `models/weights/zfnet_frutos10_phase2.pt`.
 
 API activa:
 
@@ -190,8 +194,8 @@ El frontend usa `/api/backend`; el proxy redirige las llamadas al backend FastAP
 Terminal 1:
 
 ```powershell
-cd "C:\Users\Nyaw\Downloads\Inteligencia Artificial\backend"
-$env:ZFNET_CUSTOM_CHECKPOINT="C:\Users\Nyaw\Downloads\Inteligencia Artificial\models\weights\zfnet_frutos10_full.pt"
+cd backend
+$env:ZFNET_CUSTOM_CHECKPOINT="..\models\weights\zfnet_frutos10_phase2.pt"
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
