@@ -64,3 +64,40 @@ export type Health = {
   classes: number;
   load_seconds: number;
 };
+
+/** Una clase del dataset, tal como la devuelve `/api/datasets`. */
+export type DatasetClass = { count: number };
+
+/** Inventario completo del dataset: frutas → clases → conteo. */
+export type DatasetInventory = {
+  name: string;
+  fruits: Record<string, Record<string, DatasetClass>>;
+  totals: { images: number; classes: number };
+};
+
+/** Elemento individual de una página del dataset. */
+export type DatasetItem = {
+  filename: string;
+  relative_path: string;
+  fruit?: string;
+  label?: string;
+};
+
+/** Página de imágenes de una clase concreta. */
+export type DatasetPage = {
+  items: DatasetItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+};
+
+/** Mapa de activación media de una capa convolucional. */
+export type ConvMap = {
+  name: string;
+  shape: number[];
+  channels: number;
+  map: string;
+  mean_activation: number;
+  max_activation: number;
+};
