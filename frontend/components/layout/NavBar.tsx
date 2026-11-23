@@ -39,8 +39,12 @@ export default function NavBar() {
   useEffect(() => {
     let alive = true;
     fetch("/api/backend/health", { cache: "no-store" })
-      .then((res) => (res.ok ? setStatus("ok") : setStatus("off")))
-      .catch(() => alive && setStatus("off"));
+      .then((res) => {
+        if (alive) setStatus(res.ok ? "ok" : "off");
+      })
+      .catch(() => {
+        if (alive) setStatus("off");
+      });
     return () => {
       alive = false;
     };

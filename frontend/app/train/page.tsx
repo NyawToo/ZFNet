@@ -244,7 +244,7 @@ export default function TrainPage() {
             </div>
 
             <div className="mt-5 space-y-4">
-              <Slider label="Épocas" value={epochs} min={1} max={200} step={1} onChange={setEpochs} hint={`máx. 15 000`} />
+              <Slider label="Épocas" value={epochs} min={1} max={15000} step={1} onChange={setEpochs} hint="máx. 15 000" />
               <Slider label="Batch size" value={batchSize} min={1} max={128} step={1} onChange={setBatchSize} />
               <Slider
                 label="Learning rate"
