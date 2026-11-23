@@ -33,11 +33,21 @@ export default function PredictPage() {
     if (!blob) return;
     setBusy(true);
     setError(null);
+    let active = true;
     void api
       .predict(blob, 10)
-      .then((result) => setPredictions(result.predictions))
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Error al clasificar"))
-      .finally(() => setBusy(false));
+      .then((result) => {
+        if (active) setPredictions(result.predictions);
+      })
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : "Error al clasificar");
+      })
+      .finally(() => {
+        if (active) setBusy(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [blob]);
 
   const handleImage = (nextBlob: Blob, nextUrl: string, nextName: string) => {
@@ -88,7 +98,7 @@ export default function PredictPage() {
 
       <section className="mt-6 grid gap-5 lg:grid-cols-[390px_minmax(0,1fr)]">
         <div className="space-y-4">
-          <Uploader onReady={handleImage} busy={busy} />
+          <Uploader onReady={handleImage} busy={busy} onError={setError} />
 
           <div className="card p-4">
             <div className="flex items-center justify-between">

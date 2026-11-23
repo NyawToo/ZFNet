@@ -6,9 +6,10 @@ import { formatBytes, prepareImage } from "@/lib/image";
 type Props = {
   onReady: (blob: Blob, previewUrl: string, name: string) => void;
   busy: boolean;
+  onError?: (message: string) => void;
 };
 
-export default function Uploader({ onReady, busy }: Props) {
+export default function Uploader({ onReady, busy, onError }: Props) {
   const [dragging, setDragging] = useState(false);
   const [info, setInfo] = useState<{ name: string; size: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -17,14 +18,20 @@ export default function Uploader({ onReady, busy }: Props) {
     async (file: File) => {
       if (!file.type.startsWith("image/")) {
         setInfo(null);
+        onError?.("Selecciona un archivo de imagen válido: JPG, PNG, WebP o BMP.");
         return;
       }
-      const blob = await prepareImage(file);
-      const url = URL.createObjectURL(blob);
-      setInfo({ name: file.name, size: blob.size });
-      onReady(blob, url, file.name);
+      try {
+        const blob = await prepareImage(file);
+        const url = URL.createObjectURL(blob);
+        setInfo({ name: file.name, size: blob.size });
+        onReady(blob, url, file.name);
+      } catch (cause) {
+        setInfo(null);
+        onError?.(cause instanceof Error ? cause.message : "No se pudo procesar la imagen.");
+      }
     },
-    [onReady],
+    [onError, onReady],
   );
 
   return (
