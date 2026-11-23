@@ -1,26 +1,38 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import NavBar from "@/components/layout/NavBar";
+import Footer from "@/components/layout/Footer";
+import NeuralBackground from "@/components/layout/NeuralBackground";
 
 export const metadata: Metadata = {
-  title: "ZFNet · explicabilidad para diagnóstico vegetal",
+  title: "ZFNet Agro · red neuronal para frutas",
   description:
-    "Clasificación de imágenes con ZFNet (ILSVRC 2013) y proyección DeconvNet para ver qué píxeles activan cada neurona.",
+    "Clasificación de frutas buenas y dañadas con ZFNet fine-tuneado y reconstrucción DeconvNet para ver qué píxeles activan cada neurona.",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icon.svg" }],
+  },
+  openGraph: {
+    title: "ZFNet Agro · red neuronal para frutas",
+    description: "Cinco frutas, dos estados y una red convolucional que explica sus decisiones.",
+    type: "website",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#050A08",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body>
-        <nav className="sticky top-0 z-40 border-b border-black/5 bg-[#f6f7f5]/95 backdrop-blur">
-          <div className="mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-3 py-2 sm:px-5 sm:py-3">
-            <Link href="/" className="mr-auto shrink-0 font-semibold text-ink">ZFNet Agro</Link>
-            <Link href="/explore" className="btn-ghost shrink-0 px-3 py-2">Galería</Link>
-            <Link href="/predict" className="btn-ghost shrink-0 px-3 py-2">Predecir</Link>
-            <Link href="/train" className="btn-primary shrink-0 px-3 py-2">Entrenar</Link>
-          </div>
-        </nav>
-        {children}
+      <body className="min-h-screen">
+        <NeuralBackground />
+        <NavBar />
+        <main className="relative z-10">{children}</main>
+        <Footer />
       </body>
     </html>
   );

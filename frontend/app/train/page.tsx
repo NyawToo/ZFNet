@@ -1,18 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Reveal from "@/components/motion/Reveal";
+import CountUp from "@/components/motion/CountUp";
+import { DATASET, fetchInventory } from "@/lib/datasets";
+import type { DatasetInventory } from "@/lib/types";
 
-type Dataset = {
-  name: string;
-  fruits: Record<string, Record<string, string[]>>;
-  classes: Record<string, string[]>;
-  totals: Record<string, number>;
+type Job = {
+  id?: string;
+  status: "running" | "completed" | "failed" | "cancelled" | string;
+  lines?: string[];
+  checkpoint?: string | null;
+  returncode?: number | null;
 };
 
+const PRESETS = [
+  {
+    name: "Rápido",
+    hint: "solo fc8 · 10 épocas",
+    values: { mode: "head-only", epochs: 10, batchSize: 32, learningRate: 0.01, patience: 10, stepSize: 7, gamma: 0.1 },
+  },
+  {
+    name: "Equilibrado",
+    hint: "solo fc8 · 20 épocas",
+    values: { mode: "head-only", epochs: 20, batchSize: 16, learningRate: 0.005, patience: 8, stepSize: 7, gamma: 0.3 },
+  },
+  {
+    name: "Profundo",
+    hint: "todas las capas · 20 épocas",
+    values: { mode: "full", epochs: 20, batchSize: 8, learningRate: 0.001, patience: 6, stepSize: 7, gamma: 0.5 },
+  },
+];
+
 export default function TrainPage() {
-  const [datasets, setDatasets] = useState<string[]>(["fruits_dataset_synthetic"]);
-  const [selectedDataset, setSelectedDataset] = useState("fruits_dataset_synthetic");
-  const [inventory, setInventory] = useState<Dataset | null>(null);
+  const [dataset] = useState(DATASET);
+  const [inventory, setInventory] = useState<DatasetInventory | null>(null);
   const [epochs, setEpochs] = useState(10);
   const [patience, setPatience] = useState(10);
   const [batchSize, setBatchSize] = useState(32);
@@ -25,44 +47,61 @@ export default function TrainPage() {
   const [stepSize, setStepSize] = useState(7);
   const [gamma, setGamma] = useState(0.1);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [job, setJob] = useState<any>(null);
+  const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [activePreset, setActivePreset] = useState("Rápido");
+  const logRef = useRef<HTMLPreElement>(null);
+
+  const percentSum = Number((trainPercent + validPercent + testPercent).toFixed(2));
+  const percentOk = Math.abs(percentSum - 100) < 0.01;
 
   useEffect(() => {
-    void fetch(`/api/backend/datasets?dataset=${selectedDataset}`, { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(await response.text());
-        return response.json();
-      })
+    void fetchInventory(dataset)
       .then(setInventory)
       .catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudo leer el dataset"));
-  }, [selectedDataset]);
+  }, [dataset]);
 
   useEffect(() => {
     if (!jobId) return;
     const timer = window.setInterval(() => {
       void fetch(`/api/backend/training/status/${jobId}`, { cache: "no-store" })
         .then((response) => response.json())
-        .then((result) => {
+        .then((result: Job) => {
           setJob(result);
           if (result.status !== "running") window.clearInterval(timer);
-        });
+        })
+        .catch(() => undefined);
     }, 1200);
     return () => window.clearInterval(timer);
   }, [jobId]);
 
+  useEffect(() => {
+    const node = logRef.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [job?.lines]);
+
+  const applyPreset = (preset: (typeof PRESETS)[number]) => {
+    setActivePreset(preset.name);
+    setMode(preset.values.mode);
+    setEpochs(preset.values.epochs);
+    setBatchSize(preset.values.batchSize);
+    setLearningRate(preset.values.learningRate);
+    setPatience(preset.values.patience);
+    setStepSize(preset.values.stepSize);
+    setGamma(preset.values.gamma);
+  };
+
   const startTraining = async () => {
     setError(null);
-    setStarting(true);
-    if (trainPercent + validPercent + testPercent !== 100) {
-      setError("Entrenamiento, validación y prueba deben sumar 100%");
-      setStarting(false);
+    if (!percentOk) {
+      setError("Entrenamiento, validación y prueba deben sumar 100 %");
       return;
     }
+    setStarting(true);
     setJob(null);
     const form = new FormData();
-    form.set("dataset", selectedDataset);
+    form.set("dataset", dataset);
     form.set("epochs", String(epochs));
     form.set("batch_size", String(batchSize));
     form.set("learning_rate", String(learningRate));
@@ -74,128 +113,363 @@ export default function TrainPage() {
     form.set("step_size", String(stepSize));
     form.set("gamma", String(gamma));
     form.set("patience", String(patience));
-    const response = await fetch("/api/backend/training/start", { method: "POST", body: form });
-    const payload = await response.json();
-    setStarting(false);
-    if (!response.ok) {
-      setError(payload.detail ?? "No se pudo iniciar el entrenamiento");
-      return;
+    try {
+      const response = await fetch("/api/backend/training/start", { method: "POST", body: form });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.detail ?? "No se pudo iniciar el entrenamiento");
+        return;
+      }
+      setJobId(payload.job_id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo iniciar el entrenamiento");
+    } finally {
+      setStarting(false);
     }
-    setJobId(payload.job_id);
+  };
+
+  const cancelTraining = () => {
+    if (!jobId) return;
+    void fetch(`/api/backend/training/cancel/${jobId}`, { method: "POST" })
+      .then((response) => response.json())
+      .then((result: Job) => setJob((current) => ({ ...(current ?? { status: "running" }), ...result })))
+      .catch(() => undefined);
+  };
+
+  const statusStyle: Record<string, string> = {
+    running: "bg-mango-500/15 text-mango-300 ring-mango-500/40",
+    completed: "bg-lime-500/15 text-lime-300 ring-lime-500/40",
+    failed: "bg-coral-500/15 text-coral-300 ring-coral-500/40",
+    cancelled: "bg-white/10 text-mist ring-white/20",
   };
 
   return (
-    <main className="mx-auto max-w-7xl space-y-5 px-5 py-6">
-      <div>
-        <p className="text-xs font-medium uppercase text-leaf-700">Fine-tuning ZFNet</p>
-        <h1 className="text-2xl font-semibold">Configurar entrenamiento</h1>
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="label-xs">fine-tuning ZFNet</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-4xl">
+            Laboratorio de <span className="text-gradient">entrenamiento</span>
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-bone/60">
+            Ajusta hiperparámetros, lanza el proceso y sigue la salida en vivo. El checkpoint publicado ya
+            alcanza <span className="text-lime-300">99.87 %</span> en test: reentrenar es opcional.
+          </p>
+        </div>
+        <span className="chip font-mono">{dataset}</span>
+      </header>
+
+      {error && (
+        <p className="mt-5 rounded-xl border border-coral-500/30 bg-coral-500/10 px-4 py-3 text-sm text-coral-300">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
+        {[
+          { label: "imágenes", value: inventory?.totals.images ?? 0, decimals: 0, accent: "text-lime-300" },
+          { label: "clases", value: inventory?.totals.classes ?? 0, decimals: 0, accent: "text-mint-300" },
+          { label: "frutas", value: inventory ? Object.keys(inventory.fruits).length : 0, decimals: 0, accent: "text-mango-300" },
+        ].map((stat) => (
+          <div key={stat.label} className="card card-hover p-3 sm:p-4">
+            <p className={`font-mono text-lg font-semibold sm:text-2xl ${stat.accent}`}>
+              <CountUp value={stat.value} />
+            </p>
+            <p className="mt-1 text-[9px] uppercase tracking-[0.18em] text-mist sm:text-[10px]">{stat.label}</p>
+          </div>
+        ))}
       </div>
 
-      {error && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-
-      <section className="grid gap-5 lg:grid-cols-[360px_1fr]">
-        <div className="card space-y-5 p-5">
-          <label className="block space-y-1.5 text-sm">
-            <span className="font-medium">Dataset</span>
-            <select value={selectedDataset} onChange={(event) => setSelectedDataset(event.target.value)} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2">
-              {datasets.map((dataset) => <option key={dataset}>{dataset}</option>)}
-            </select>
-          </label>
-
-          {inventory && (
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-xl bg-black/[0.035] px-3 py-3 text-center">
-                <strong className="block text-lg">{inventory.totals.images}</strong>
-                <span className="text-xs text-ink/50">imágenes</span>
-              </div>
-              <div className="rounded-xl bg-black/[0.035] px-3 py-3 text-center">
-                <strong className="block text-lg">{inventory.totals.classes}</strong>
-                <span className="text-xs text-ink/50">clases</span>
-              </div>
-              <div className="rounded-xl bg-black/[0.035] px-3 py-3 text-center">
-                <strong className="block text-lg">{Object.keys(inventory.fruits).length}</strong>
-                <span className="text-xs text-ink/50">frutas</span>
-              </div>
+      <section className="mt-5 grid gap-5 lg:grid-cols-[400px_minmax(0,1fr)]">
+        <div className="space-y-4">
+          <div className="card p-4">
+            <p className="label-xs">recetas rápidas</p>
+            <div className="mt-2 grid gap-2">
+              {PRESETS.map((preset) => {
+                const active = activePreset === preset.name;
+                return (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => applyPreset(preset)}
+                    className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-left text-xs transition-all duration-300 ${
+                      active
+                        ? "border-lime-500/40 bg-lime-500/[0.1] text-lime-200"
+                        : "border-white/[0.07] bg-white/[0.02] text-bone/70 hover:-translate-y-0.5 hover:bg-white/[0.05]"
+                    }`}
+                  >
+                    <span>
+                      <span className="block text-sm font-semibold">{preset.name}</span>
+                      <span className="text-[10px] text-mist">{preset.hint}</span>
+                    </span>
+                    <span className={`h-2 w-2 rounded-full ${active ? "bg-lime-400 shadow-glow" : "bg-white/15"}`} />
+                  </button>
+                );
+              })}
             </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <NumberField label="Épocas" value={epochs} onChange={setEpochs} min={1} max={15000} />
-            <NumberField label="Batch size" value={batchSize} onChange={setBatchSize} min={1} max={128} />
-            <NumberField label="Learning rate" value={learningRate} onChange={setLearningRate} min={0.00001} step={0.0001} />
-            <NumberField label="Entrenamiento %" value={trainPercent} onChange={setTrainPercent} min={0} max={100} />
-            <NumberField label="Validación %" value={validPercent} onChange={setValidPercent} min={0} max={100} />
-            <NumberField label="Prueba %" value={testPercent} onChange={setTestPercent} min={0} max={100} />
-            <NumberField label="Semilla aleatoria" value={seed} onChange={setSeed} min={0} max={999999} />
-            <NumberField label="Paciencia early stop" value={patience} onChange={setPatience} min={1} max={1000} />
-            <NumberField label="Step LR" value={stepSize} onChange={setStepSize} min={1} />
-            <NumberField label="Gamma LR" value={gamma} onChange={setGamma} min={0.0001} max={1} step={0.01} />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            {["head-only", "full"].map((option) => (
-              <button key={option} type="button" onClick={() => setMode(option)} className={`rounded-lg px-3 py-2 text-sm ${mode === option ? "bg-leaf-700 text-white" : "border border-black/10 bg-white"}`}>
-                {option === "head-only" ? "Solo cabeza fc8" : "Todas las capas"}
+          <div className="card p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <p className="label-xs">modo</p>
+              <span className="font-mono text-[10px] text-mist">{mode === "full" ? "backprop total" : "tronco congelado"}</span>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {[
+                { key: "head-only", title: "Solo fc8", desc: "rápido y estable" },
+                { key: "full", title: "Todas", desc: "ajusta todo ZFNet" },
+              ].map((option) => {
+                const active = mode === option.key;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => {
+                      setMode(option.key);
+                      setActivePreset("");
+                    }}
+                    className={`rounded-xl border p-3 text-left transition-all duration-300 ${
+                      active
+                        ? "border-mint-400/40 bg-mint-400/[0.1]"
+                        : "border-white/[0.07] bg-white/[0.02] hover:bg-white/[0.05]"
+                    }`}
+                  >
+                    <span className={`block text-sm font-semibold ${active ? "text-mint-300" : "text-bone/80"}`}>
+                      {option.title}
+                    </span>
+                    <span className="text-[10px] text-mist">{option.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <Slider label="Épocas" value={epochs} min={1} max={200} step={1} onChange={setEpochs} hint={`máx. 15 000`} />
+              <Slider label="Batch size" value={batchSize} min={1} max={128} step={1} onChange={setBatchSize} />
+              <Slider
+                label="Learning rate"
+                value={learningRate}
+                min={0.0001}
+                max={0.05}
+                step={0.0001}
+                decimals={4}
+                onChange={setLearningRate}
+              />
+              <Slider label="Paciencia" value={patience} min={1} max={50} step={1} onChange={setPatience} hint="early stopping" />
+              <Slider label="Step LR" value={stepSize} min={1} max={30} step={1} onChange={setStepSize} hint="épocas por caída" />
+              <Slider label="Gamma" value={gamma} min={0.01} max={1} step={0.01} decimals={2} onChange={setGamma} hint="factor de caída" />
+            </div>
+
+            <div className="mt-5 rounded-xl border border-white/[0.07] bg-black/20 p-3">
+              <div className="flex items-center justify-between">
+                <p className="label-xs">reparto del dataset</p>
+                <span className={`font-mono text-[11px] ${percentOk ? "text-mint-300" : "text-coral-400"}`}>
+                  {percentSum} %
+                </span>
+              </div>
+              <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                <span className="bg-lime-500 transition-all duration-500" style={{ width: `${trainPercent}%` }} />
+                <span className="bg-mint-400 transition-all duration-500" style={{ width: `${validPercent}%` }} />
+                <span className="bg-mango-500 transition-all duration-500" style={{ width: `${testPercent}%` }} />
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <MiniSlider label="train" value={trainPercent} onChange={setTrainPercent} accent="text-lime-300" />
+                <MiniSlider label="valid" value={validPercent} onChange={setValidPercent} accent="text-mint-300" />
+                <MiniSlider label="test" value={testPercent} onChange={setTestPercent} accent="text-mango-300" />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTrainPercent(70);
+                  setValidPercent(15);
+                  setTestPercent(15);
+                }}
+                className="mt-2 w-full rounded-lg border border-white/[0.07] py-1.5 text-[10px] uppercase tracking-widest text-mist transition hover:bg-white/[0.05] hover:text-bone"
+              >
+                balancear 70 / 15 / 15
               </button>
-            ))}
-          </div>
+            </div>
 
-          {job?.status === "running" ? (
-            <button
-              type="button"
-              onClick={() => void fetch(`/api/backend/training/cancel/${jobId}`, { method: "POST" }).then((response) => response.json()).then(setJob)}
-              className="btn-ghost w-full border-red-200 text-red-700"
-            >
-              Cancelar entrenamiento
-            </button>
-          ) : (
-            <button type="button" onClick={() => void startTraining()} disabled={starting} className="btn-primary w-full">
-              {starting ? "Iniciando proceso..." : "Iniciar entrenamiento"}
-            </button>
-          )}
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-[11px] text-mist">
+                semilla
+                <input
+                  type="number"
+                  value={seed}
+                  min={0}
+                  onChange={(event) => setSeed(Number(event.target.value))}
+                  className="field w-20 px-2 py-1 text-xs"
+                />
+              </label>
+              {job?.status === "running" ? (
+                <button type="button" onClick={cancelTraining} className="btn-ghost border-coral-500/30 px-4 py-2 text-xs text-coral-300">
+                  Cancelar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void startTraining()}
+                  disabled={starting || !percentOk}
+                  className="btn-primary px-4 py-2 text-xs"
+                >
+                  {starting ? "Iniciando…" : "Iniciar entrenamiento ▶"}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="card p-5">
-          <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="font-semibold">Salida del proceso</h2>
-            {job && <span className="chip">{job.status}</span>}
+        <div className="card flex min-h-[420px] flex-col overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="flex gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-coral-500/70" />
+                <span className="h-2.5 w-2.5 rounded-full bg-mango-500/70" />
+                <span className="h-2.5 w-2.5 rounded-full bg-lime-500/70" />
+              </span>
+              <h2 className="ml-2 text-sm font-semibold">Salida del proceso</h2>
+            </div>
+            {job ? (
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 ${
+                  statusStyle[job.status] ?? "bg-white/10 text-mist ring-white/20"
+                }`}
+              >
+                {job.status}
+              </span>
+            ) : (
+              <span className="chip">inactivo</span>
+            )}
           </div>
-          {job ? (
-            <div className="space-y-4">
-              {job.checkpoint && <p className="rounded-xl border border-leaf-200 bg-leaf-50 px-4 py-3 text-sm text-leaf-800">Checkpoint activo: {job.checkpoint}</p>}
-              <pre className="max-h-[520px] overflow-auto rounded-xl bg-[#101511] p-4 font-mono text-xs leading-6 text-green-100">
-                {job.lines?.join("\n") || "Esperando salida..."}
-              </pre>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-black/5 bg-black/[0.02] px-5 py-12 text-center text-sm text-ink/50">
-              Selecciona el dataset y los hiperparámetros, luego inicia el entrenamiento.
-            </div>
+
+          {job?.checkpoint && (
+            <p className="mx-4 mt-3 rounded-xl border border-lime-500/25 bg-lime-500/[0.08] px-3 py-2 text-xs text-lime-200">
+              Checkpoint activo: <span className="font-mono">{job.checkpoint}</span>
+            </p>
           )}
+
+          <pre
+            ref={logRef}
+            className="scroll-thin m-4 flex-1 overflow-auto rounded-xl border border-white/[0.06] bg-[#040806] p-4 font-mono text-[11px] leading-6 text-lime-100/90"
+          >
+            {job?.lines?.length ? (
+              <>
+                {job.lines.join("\n")}
+                {job.status === "running" && <span className="ml-1 inline-block h-3 w-1.5 animate-blink bg-lime-300 align-middle" />}
+              </>
+            ) : (
+              <span className="text-mist">
+                {job ? "Esperando salida…" : "› Selecciona una receta, ajusta los hiperparámetros y pulsa Iniciar entrenamiento."}
+              </span>
+            )}
+          </pre>
+
+          <div className="grid gap-2 border-t border-white/[0.06] px-4 py-3 text-[11px] text-mist sm:grid-cols-3">
+            <span>modo <b className="font-mono text-bone/80">{mode}</b></span>
+            <span>épocas <b className="font-mono text-bone/80">{epochs}</b></span>
+            <span>lr <b className="font-mono text-bone/80">{learningRate}</b></span>
+          </div>
         </div>
       </section>
 
-      <section className="card p-5">
-        <h2 className="mb-3 font-semibold">Qué ocurre matemáticamente</h2>
-        <div className="grid gap-3 md:grid-cols-3 text-sm text-ink/70">
-          <FormulaCard title="Convolución" text="y[i,j,k] = Σₐ Σₘ Σₙ x[i+s·m,j+s·n,a] W[m,n,a,k] + b[k]" />
-          <FormulaCard title="Pérdida" text="L = -Σᵢ yᵢ log(softmax(z)ᵢ)" />
-          <FormulaCard title="Descenso SGD" text="θₜ₊₁ = θₜ - η · ∇θL(θₜ)" />
-        </div>
-      </section>
-    </main>
+      <Reveal className="mt-10">
+        <section className="grid gap-3 md:grid-cols-3">
+          {[
+            { title: "Convolución", text: "y[i,j,k] = Σ x[i+s·m, j+s·n, a] · W[m,n,a,k] + b[k]" },
+            { title: "Pérdida", text: "L = −Σ yᵢ log softmax(z)ᵢ" },
+            { title: "Descenso", text: "θₜ₊₁ = θₜ − η · ∇θ L(θₜ)" },
+          ].map((item) => (
+            <article key={item.title} className="card card-hover p-4">
+              <h3 className="text-sm font-semibold">{item.title}</h3>
+              <code className="mt-2 block break-words rounded-lg bg-black/35 px-2.5 py-2 font-mono text-[11px] text-lime-200">
+                {item.text}
+              </code>
+            </article>
+          ))}
+        </section>
+      </Reveal>
+    </div>
   );
 }
 
-function NumberField({ label, value, onChange, min, max, step }: { label: string; value: number; onChange: (value: number) => void; min?: number; max?: number; step?: number }) {
+function Slider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  decimals = 0,
+  hint,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+  decimals?: number;
+  hint?: string;
+}) {
   return (
-    <label className="space-y-1 text-xs text-ink/60">
-      <span>{label}</span>
-      <input type="number" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 font-mono text-sm text-ink" />
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-bone/70">
+          {label}
+          {hint && <span className="ml-1 text-[10px] text-mist">· {hint}</span>}
+        </span>
+        <input
+          type="number"
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="field w-24 px-2 py-1 text-right text-xs"
+        />
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        aria-label={label}
+        className="mt-2"
+      />
+      <span className="sr-only">{value.toFixed(decimals)}</span>
+    </div>
+  );
+}
+
+function MiniSlider({
+  label,
+  value,
+  onChange,
+  accent,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  accent: string;
+}) {
+  return (
+    <label className="block rounded-lg bg-white/[0.03] px-2 py-1.5">
+      <span className={`flex items-center justify-between text-[10px] uppercase tracking-wider ${accent}`}>
+        {label}
+        <span className="font-mono">{value}%</span>
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="mt-1.5"
+        aria-label={label}
+      />
     </label>
   );
-}
-
-function FormulaCard({ title, text }: { title: string; text: string }) {
-  return <div className="rounded-xl border border-black/5 bg-white p-4"><strong className="block mb-1">{title}</strong><code className="break-words text-xs">{text}</code></div>;
 }

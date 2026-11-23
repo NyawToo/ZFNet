@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="zf-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0C1A12"/>
+      <stop offset="1" stop-color="#040906"/>
+    </linearGradient>
+    <linearGradient id="zf-fruit" x1="16" y1="20" x2="48" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D6FF9B"/>
+      <stop offset="0.55" stop-color="#A3E635"/>
+      <stop offset="1" stop-color="#2DD4BF"/>
+    </linearGradient>
+    <linearGradient id="zf-leaf" x1="33" y1="18" x2="46" y2="8" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD98A"/>
+      <stop offset="1" stop-color="#FFB020"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#zf-bg)"/>
+  <rect x="0.6" y="0.6" width="62.8" height="62.8" rx="15.4" fill="none" stroke="#A3E635" stroke-opacity="0.28"/>
+  <path d="M32.5 19.5c0-5.2 4.4-9.4 10.5-10.2.5 6.3-4 10.2-10.5 10.2Z" fill="url(#zf-leaf)"/>
+  <circle cx="32" cy="36.5" r="15.5" fill="none" stroke="url(#zf-fruit)" stroke-width="3"/>
+  <circle cx="32" cy="36.5" r="15.5" fill="#A3E635" fill-opacity="0.06"/>
+  <path d="M25 31.5h14M25 31.5l7 11.5M39 31.5 32 43" stroke="#E9F3EC" stroke-opacity="0.5" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="25" cy="31.5" r="2.7" fill="#D6FF9B"/>
+  <circle cx="39" cy="31.5" r="2.7" fill="#5EEAD4"/>
+  <circle cx="32" cy="43" r="2.7" fill="#FFB020"/>
+</svg>

@@ -170,7 +170,8 @@ de frutas: debe configurarse un checkpoint de fine-tuning mediante
 
 ## Frontend
 
-Instala dependencias desde la carpeta del frontend:
+Interfaz oscura tipo *neural lab* con animaciones CSS, iconografía de frutas y un logo propio
+que también se usa como favicon.
 
 ```powershell
 cd frontend
@@ -178,16 +179,35 @@ npm install
 npm run dev
 ```
 
-Abre http://localhost:3000.
+Abre http://localhost:3000. Para arrancar backend y frontend de una sola vez desde la raíz:
+
+```powershell
+.\iniciar.ps1
+```
 
 Vistas disponibles:
 
-- `/`: explicación de ZFNet, fórmulas y pipeline.
-- `/explore`: imágenes paginadas por fruta y estado, predicción y activaciones conv1–conv5.
-- `/predict`: carga manual de una imagen propia.
-- `/train`: selección de dataset, hasta 15,000 épocas, batch, learning rate, porcentajes, early stopping y cancelación de proceso.
+- `/`: hero animado con órbita de frutas, recorrido interactivo por las 12 etapas de la red, laboratorio de softmax y tarjetas de matemáticas.
+- `/explore`: galería paginada por fruta y estado, análisis de una imagen con predicción y mapas conv1–conv5, botón «sorpréndeme».
+- `/predict`: carga manual o muestra aleatoria, top-10 de probabilidades y explorador DeconvNet con control de canal, opacidad del mapa de calor y traza inversa.
+- `/train`: recetas rápidas, sliders, reparto train/valid/test, terminal en vivo con estado del proceso y cancelación.
 
 El frontend usa `/api/backend`; el proxy redirige las llamadas al backend FastAPI en `127.0.0.1:8000`. La galería carga el dataset por páginas de 24 imágenes para evitar enviar miles de rutas al navegador.
+
+Estructura de `frontend/`:
+
+```text
+app/                 rutas de Next.js (App Router)
+  api/backend/       proxy hacia FastAPI
+  explore/ predict/ train/
+components/
+  brand/             Logo y FruitIcon
+  layout/            NavBar, Footer, NeuralBackground
+  motion/            Reveal y CountUp (animaciones reutilizables)
+  inference/         Uploader, PredictionBars, LayerExplorer
+  home/              SoftmaxPlayground
+lib/                 api, datasets, fruit, image, types
+```
 
 ## Inicio rápido completo
 
@@ -202,7 +222,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 Terminal 2:
 
 ```powershell
-cd "C:\Users\Nyaw\Downloads\Inteligencia Artificial\frontend"
+cd frontend
 npm run dev
 ```
 
