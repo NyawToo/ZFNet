@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LogoMark } from "@/components/brand/Logo";
+import UniversityLogo from "@/components/brand/UniversityLogo";
 import FruitIcon from "@/components/brand/FruitIcon";
 import Reveal from "@/components/motion/Reveal";
 import CountUp from "@/components/motion/CountUp";
@@ -149,13 +150,7 @@ export default function HomePage() {
       <section className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="animate-rise">
           <div className="flex flex-wrap items-center gap-3">
-            <img
-              src="/UDEC.png"
-              alt="Logo UDEC"
-              width={200}
-              height={150}
-              className="h-[200px] w-[150px] object-contain"
-            />
+            <UniversityLogo className="h-9" />
 
             <span className="inline-flex items-center gap-2 rounded-full border border-lime-500/25 bg-lime-500/[0.08] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-lime-300">
               <span className="relative flex h-1.5 w-1.5">

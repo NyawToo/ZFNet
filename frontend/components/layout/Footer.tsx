@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Logo from "../brand/Logo";
+import UniversityLogo from "../brand/UniversityLogo";
 
 export default function Footer() {
   return (
@@ -53,8 +54,22 @@ export default function Footer() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-white/[0.06] px-4 py-5 text-center text-[11px] text-mist sm:px-6">
-        Proyecto Final IA · ZFNet (Zeiler &amp; Fergus, ECCV 2014) · hecho para mirar la fruta con otros ojos
+      <div className="border-t border-white/[0.06] px-4 py-5 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row">
+          <a
+            href="https://www.ucundinamarca.edu.co/"
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 opacity-70 transition hover:opacity-100"
+            aria-label="Universidad de Cundinamarca"
+          >
+            <UniversityLogo className="h-7 sm:h-8" />
+          </a>
+          <p className="text-center text-[11px] text-mist sm:text-right">
+            Proyecto Final IA · ZFNet (Zeiler &amp; Fergus, ECCV 2014) · hecho para mirar
+            la fruta con otros ojos
+          </p>
+        </div>
       </div>
     </footer>
   );
