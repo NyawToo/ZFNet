@@ -8,8 +8,10 @@ export default function Footer() {
         <div className="space-y-4">
           <Logo />
           <p className="max-w-sm text-sm leading-6 text-mist">
-            ZFNet fine-tuneado para clasificar cinco frutas en estado bueno o dañado, con
-            reconstrucción DeconvNet para ver qué mira cada neurona.
+            Julian Andres Perez Mendigaño
+            - Kevin Santiago Garcia Ospina
+            - Ivan Daniel Palacio Hernandez
+            - Andres Felipe Maldonado Forero
           </p>
           <div className="flex flex-wrap gap-2">
             {["PyTorch", "FastAPI", "Next.js", "DeconvNet"].map((tech) => (

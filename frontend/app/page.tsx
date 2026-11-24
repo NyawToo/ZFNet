@@ -148,13 +148,23 @@ export default function HomePage() {
       {/* ---------------- HERO ---------------- */}
       <section className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="animate-rise">
-          <span className="inline-flex items-center gap-2 rounded-full border border-lime-500/25 bg-lime-500/[0.08] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-lime-300">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inset-0 animate-ping rounded-full bg-lime-400" />
-              <span className="relative h-1.5 w-1.5 rounded-full bg-lime-400" />
+          <div className="flex flex-wrap items-center gap-3">
+            <img
+              src="/UDEC.png"
+              alt="Logo UDEC"
+              width={200}
+              height={150}
+              className="h-[200px] w-[150px] object-contain"
+            />
+
+            <span className="inline-flex items-center gap-2 rounded-full border border-lime-500/25 bg-lime-500/[0.08] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-lime-300">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inset-0 animate-ping rounded-full bg-lime-400" />
+                <span className="relative h-1.5 w-1.5 rounded-full bg-lime-400" />
+              </span>
+              ZFNet · ILSVRC 2013 · fine-tuned
             </span>
-            ZFNet · ILSVRC 2013 · fine-tuned
-          </span>
+          </div>
 
           <h1 className="mt-5 text-[2.15rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl">
             La red neuronal que
